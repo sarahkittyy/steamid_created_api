@@ -1,4 +1,5 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use chrono::DateTime;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{query, query_as, MySqlPool};
@@ -89,6 +90,7 @@ async fn lookup_steam_id(
         };
         if let Some(timecreated) = body["response"]["players"][0]["timecreated"].as_i64() {
             // Cache the result
+            println!("Steam API returned OK.");
             cache_result(&pool, steamid64, timecreated).await;
             return HttpResponse::Ok().json(SteamIDResponse {
                 steamid64: steamid64.to_string(),
@@ -129,7 +131,7 @@ async fn cache_result(pool: &MySqlPool, steamid64: i64, timecreated: i64) {
 
 async fn estimate_from_db(pool: &MySqlPool, steamid64: i64) -> Option<EstimationResult> {
     // SQL query to find the two closest steam IDs
-    let closest: Vec<(i64, i64)> = query_as(
+    let Ok(closest) = query_as(
         "WITH closest_ids AS (
             SELECT
                 steamid64,
@@ -144,7 +146,9 @@ async fn estimate_from_db(pool: &MySqlPool, steamid64: i64) -> Option<Estimation
     .bind(steamid64)
     .fetch_all(pool)
     .await
-    .unwrap();
+    else {
+        return None;
+    };
 
     // Ensure we got two closest IDs
     if closest.len() == 2 {
@@ -163,6 +167,19 @@ async fn estimate_from_db(pool: &MySqlPool, steamid64: i64) -> Option<Estimation
         let margin_of_error =
             calculate_error_range(steamid64, lower_id, lower_time, upper_id, upper_time);
 
+        let lower_time_fmt = DateTime::from_timestamp(lower_time, 0)
+            .unwrap()
+            .format("%m/%d/%Y %H:%M");
+        let upper_time_fmt = DateTime::from_timestamp(upper_time, 0)
+            .unwrap()
+            .format("%m/%d/%Y %H:%M");
+        let estimated_fmt = DateTime::from_timestamp(estimated_time, 0)
+            .unwrap()
+            .format("%m/%d/%Y %H:%M");
+        println!(
+            "With lower as {} and upper as {}, estimated {}",
+            lower_time_fmt, upper_time_fmt, estimated_fmt
+        );
         return Some(EstimationResult {
             timecreated: estimated_time,
             error: margin_of_error,
