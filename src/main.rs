@@ -57,10 +57,10 @@ async fn lookup_steam_id(
     query: web::Query<SteamIDQuery>,
 ) -> impl Responder {
     let pool = data.pool.clone();
+    println!("Got request for {}", query.steamid64);
     let Ok(steamid64) = query.steamid64.parse::<i64>() else {
         return HttpResponse::BadRequest().body("Bad Steam ID.");
     };
-    println!("Got request for {}", steamid64);
     let steam_api_key = env::var("STEAM_API_KEY").expect("STEAM_API_KEY must be set");
 
     // Check if the steamid64 is already cached
