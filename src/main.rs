@@ -11,7 +11,7 @@ struct SteamIDQuery {
 
 #[derive(Serialize)]
 struct SteamIDResponse {
-    steamid64: i64,
+    steamid64: String,
     timecreated: i64,
     error: i64,
 }
@@ -66,7 +66,7 @@ async fn lookup_steam_id(
     // Check if the steamid64 is already cached
     if let Some(cached_time) = check_cache(&pool, steamid64).await {
         return HttpResponse::Ok().json(SteamIDResponse {
-            steamid64,
+            steamid64: steamid64.to_string(),
             timecreated: cached_time,
             error: 0,
         });
@@ -91,7 +91,7 @@ async fn lookup_steam_id(
             // Cache the result
             cache_result(&pool, steamid64, timecreated).await;
             return HttpResponse::Ok().json(SteamIDResponse {
-                steamid64,
+                steamid64: steamid64.to_string(),
                 timecreated,
                 error: 0,
             });
@@ -103,7 +103,7 @@ async fn lookup_steam_id(
         return HttpResponse::InternalServerError().body("Could not get DB estimation.");
     };
     HttpResponse::Ok().json(SteamIDResponse {
-        steamid64,
+        steamid64: steamid64.to_string(),
         timecreated: estimation.timecreated,
         error: estimation.error,
     })
